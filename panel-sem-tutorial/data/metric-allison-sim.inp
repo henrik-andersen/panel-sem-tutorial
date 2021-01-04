@@ -1,0 +1,69 @@
+TITLE: 
+Example Two-Sided DPM (Allison Model) 
+Simulated Data
+Metric Measurement Invariance 
+; 
+
+DATA: 
+FILE = df-allison-sim.csv
+;
+
+VARIABLE:
+NAMES ARE 
+x11 x21 x31 
+x12 x22 x32 
+x13 x23 x33 
+x14 x24 x34 
+y11 y21 y31 
+y12 y22 y32 
+y13 y23 y33 
+y14 y24 y34
+;
+
+ANALYSIS:
+ESTIMATOR = ML
+;
+
+MODEL: 
+! Measurement models 
+xt1 BY x11 x21 x31 (lx1-lx3);
+xt2 BY x12 x22 x32 (lx1-lx3); 
+xt3 BY x13 x23 x33 (lx1-lx3);
+xt4 BY x14 x24 x34 (lx1-lx3);
+
+yt1 BY y11 y21 y31 (ly1-ly3);
+yt2 BY y12 y22 y32 (ly1-ly3);
+yt3 BY y13 y23 y33 (ly1-ly3);
+yt4 BY y14 y24 y34 (ly1-ly3);
+
+! Individual effects
+alpha BY xt2@1 xt3@1 xt4@1;
+eta   BY yt2@1 yt3@1 yt4@1;
+
+! Regressions, time-invariant effects
+xt2 ON xt1 (phi) 
+yt1 (gamma);
+xt3 ON xt2 (phi) 
+yt2 (gamma);
+xt4 ON xt3 (phi) 
+yt3 (gamma);
+
+yt2 ON yt1 (rho) 
+xt1 (beta);
+yt3 ON yt2 (rho) 
+xt2 (beta);
+yt4 ON yt3 (rho) 
+xt3 (beta);
+
+! Correlations 
+alpha WITH eta xt1 yt1;
+eta   WITH xt1 yt1; 
+xt1   WITH yt1;
+
+! Contemporary residual correlations
+xt2 WITH yt2; 
+xt3 WITH yt3;
+xt4 WITH yt4;
+
+OUTPUT: 
+SAMPSTAT MODINDICES(100) RESIDUAL STDYX TECH1 TECH4;

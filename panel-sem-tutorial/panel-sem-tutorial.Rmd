@@ -1,0 +1,307 @@
+---
+title: |
+  | A tutorial for combining static and dynamic panel models in structural equation modeling: A guide to current panel models with observed and latent variables
+type: TEACHER'S CORNER
+author:
+  - name: Henrik Kenneth Andersen 
+    affil: a
+    email: henrik.andersen@soziologie.tu-chemnitz.de
+  - name: Jochen Mayerl 
+    affil: a
+    email: jochen.mayerl@soziologie.tu-chemnitz.de
+  - name: Elmar Schlüter
+    affil: b
+    email: elmar.schlueter@sowi.uni-giessen.de
+affiliation:
+  - num: a
+    address: |
+      Chemnitz University of Technology, Thüringer Weg 9, 09126 Chemnitz, DE
+  - num: b
+    address: |
+      Justus-Liebig-Universität Gießen, Karl-Glöckner-Str. 21E, 35394 Gießen, DE
+bibliography: r-references.bib
+appendix: appendix.tex
+abstract: |
+  This template is for authors who are preparing a manuscript for a Taylor & 
+  Francis journal using the \LaTeX\ document preparation system and the 
+  `interact} class file, which is available via selected journals' home 
+  pages on the Taylor & Francis website.
+keywords: |
+  Panel SEM; dynamic panel model; random-intercept cross-lagged panel model; structured residuals; measurement invariance 
+header-includes: |
+  \usepackage{amsmath}
+  \usepackage{bm}
+  \usepackage{booktabs}
+  \usepackage{hyperref}
+  \usepackage[utf8]{inputenc}
+  \def\tightlist{}
+output: rticles::tf_article
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE, error=FALSE} 
+source("r-files/scripthooks.R")
+```
+
+# Introduction
+
+Panel data, i.e., repeated measures of the same observational units over time, are becoming increasingly popular in the social and behavioural sciences. While more elaborate and expensive in terms of data collection, they offer a variety of benefits over cross-sectional data, such as the opportunity to establish temporal precedence, and increased statistical power due to the typically larger pooled sample size [@Curran2011]. However, the most attractive aspect of panel data is the ability they afford to examine causal relations in a more rigorous test of substantive theories. Namely, panel data allow one to decompose the typical regression error term into a part that is constant over time within units, and a part that changes over time. The part that does not change can be seen as the combined effect of all time-invariant characteristics, such as personality traits, sex, place of birth, etc. Various techniques are available to identify and statistically control for this time-invariant error component which are typically referred to under the banner of *random* and *fixed effects*. These stable characteristics mean that the assumption of independent observations is typically violated with panel data. While random effects models explicitly model dependency to achieve unbiased standard errors and significance testing, fixed effects regression goes a step further and statistically controls for confounding between the model covariates and *all* time-invariant potential confounders. Thus, fixed effects regression allows researchers to identify causal effects under less restrictive assumptions. Such random and fixed effects models which account for stable between-unit differences, i.e., *unobserved heterogeneity*, are referred to as *static* panel models.
+
+Structural equation modeling (SEM) is a flexible regression framework with which a large variety of panel regression models can be estimated. Random and fixed effects regression is easily implemented in SEM [@Bollen2010]. In fact, it may not yet be common knowledge, but one of the most popular static panel regression models in SEM, the latent curve model [LCM, which goes by a number of names, such as the latent growth curve, see @Meredith1990] is essentially a fixed effects model that can control for unobserved stable differences not just in level, but also growth [@Teachman2001; @Teachman2014]. One of the biggest advantages of SEM compared to conventional (e.g., least squares) approaches is the ability to model the constructs of interest as latent variables, thus accounting for measurement error. Further, measurement invariance testing checks whether the underlying measurement model is time-invariant, or if the correlations between the indicators change systematically over time. If the latter is the case, then it would not be appropriate to compare levels of the latent variables over time or the regression effects between them. I.e., if the construct of interest has changed in its composition, then we cannot say that, say, attitudes are becoming more or less positive over time; the attitudes at time point one may not even be comparable to the attitudes at time point two. Besides that, SEM allows for a minute testing of a range of other model assumptions [e.g., constant effects over time, contemporary vs. strict vs. sequential exogeneity, @Bollen2010; @Bruederl2015].
+
+SEM also offers a straightforward approach to *dynamic* panel models, i.e., those in which the lagged dependent variable is included as a predictor for the current dependent variable [@Zyphur2019a; @Zyphur2019b]. Dynamic panel models can account for processes in which there is a theoretical expectation that previous realizations of a variable should causally affect later realization [i.e., state dependence, @Heckman1981; @Hsiao2014], or for those in which the inclusion of the lagged dependent variable might be done out of pragmatic considerations, e.g., to control for potential confounding by other unobserved lagged variables [@Kuehnel2019]. 
+
+Recently, models combining both *static* and *dynamic* components have become popular in panel SEM. For example, the Autoregressive Latent Trajectory Model [ALT, @Bollen2004; @Curran2001] and Dynamic Panel Model [DPM, @Allison2017; @Williams2018; @Moral2019] combine autoregressive and random/fixed effects models to account for both unobserved heterogeneity and state dependence. Another increasingly popular approach can be seen in the Random Intercept Cross-Lagged Panel Model [RI-CLPM, @Hamaker2015; @Mulder2020; @Zyphur2019a; @Zyphur2019b] and the Latent Curve Model with Structured Residuals [LCM-SR, @Curran2014]. These models are re-expressions of the typical DPM and ALT, respectively, that model the autoregressive and covariate effects at the *residual-level*, i.e., what is left over after regressing the observed (or latent variables) on the individual effects. These models offer an attractive intuitive logic: the residuals in these models represent the difference between the observation and the individual effects (representing the stable characteristics). These are essentially the *demeaned* (or *detrended* in the case of the LCM-SR) versions of the observed variables, i.e., the stable error component is subtracted from the observation thereby re-expressing it in terms of its deviation from the stable per-unit overall average (or trajectoy). As such, the between variance is eliminated and the effects of interest are, it follows, purely *within-unit* [@Hamaker2015]. 
+
+This article is meant as a tutorial for estimating the ALT, DPM, LCM-SR and RI-CLPM in \texttt{R} and \texttt{Mplus}, two of the currently most popular SEM software packages. We demonstrate both one- and two-sided versions (in one-sided models, one of variables is treated as the 'definitive' dependent variable, while in two-sided models the focus is more on examining reciprocal relations in which both or all variables are at some point dependent on other covariates) of each of these models with observed indicators and latent variables to account for measurement error. Further, we demonstrate longitudinal measurement invariance testing for continuous and ordinal observed indicators. We also briefly touch on the opportunity to relax assumptions concerning time-invariant effects, error variances and the exogeneity of the model covariates. We use simulated data (found in the supplementary materials) for the sake of didactic simplicity, and in order to provide a 'toy' dataset for researchers to experiment with. The article assumes knowledge of the basic syntax of both `R` and `Mplus`. It describes how to estimate the discussed models, but does not the operators and language itself (`ON`, `BY`, `WITH`, `~`, `=~`, `~~`, etc.).   
+
+# Background
+
+xxx
+
+# Data 
+
+xxx
+
+\begin{table}
+\begin{tabular}{l c c c}
+\toprule
+    & Effects      & Factor loadings & Data \\
+\midrule
+df1 & Constant     & Constant        & Continuous \\
+df2 & Time-varying & Constant        & Continuous \\
+df3 & Time-varying & Time-varying    & Continuous \\
+df4 & Time-varying & Time-varying    & Ordinal \\
+\bottomrule
+\end{tabular} \vspace{3pt}
+\caption{xxx} 
+\label{xxx}
+\end{table}
+
+```{r warning=FALSE, message=FALSE, error=FALSE}
+library(lavaan)
+df1 <- readRDS("data/df-allison-sim.rda")
+```
+
+# Models
+
+## Observation-level models
+
+The DPM and ALT are considered 'observation-level' models in which the autoregressive and covariate (e.g., cross-lagged) effects are specified between either the observed variables or latent variables representing the measurement error adjusted constructs of interest, see Figure xxx(a) and xxx(b) for two-sided representations. 
+
+A two-sided DPM with observed variables can be expressed as 
+\begin{align}
+\begin{split}
+y_{it} & = \rho_{t} y_{it-1} + \beta_{t} x_{it-1} + \eta_{1i} + \varepsilon_{it}, \\
+x_{it} & = \varphi_{t} x_{it-1} + \gamma_{t} y_{it-1} + \alpha_{1i} + \delta_{it}, \ t = 1, \ldots, T \label{dpm}
+\end{split}
+\end{align}
+where $i = 1, \ldots, N$ and $t = 0, \ldots, T$, and $y_{it}$ and $x_{it}$ are observed variables of interest, and $\eta_{1i}$ and $\alpha_{1i}$ are latent variables representing the combined effect of all stable characteristics and $\varepsilon_{it}$ and $\delta_{it}$ are the idiosyncratic errors for $y$ and $x$, respectively. $\rho_{t}$ and $\varphi_{t}$ are the autoregressive effects and $\beta_{t}$ and $\gamma_{t}$ are the cross-lagged effects at time $t$. 
+
+For the sake of simplicity, we assume here and throughout that the observed variables are mean-centered before the analysis. Conditional on the model covariates and individual effects, we assume the temporal errors are independent within units, i.e., $E(\varepsilon_{it}\varepsilon_{is} | \eta_{i}, \bm{x}_{i}) = 0$ and $E(\delta_{it}\delta_{is} | \alpha_{i}, \bm{y}_{i})=0, \ t \ne s$, where $\bm{x}_{i} = (x_{i0}, \ldots, x_{iT})$ and $\bm{y}_{i} = (y_{i0}, \ldots, y_{iT})$. This is the strict exogeneity assumption that can also be expressed as $E(\varepsilon_{it}\bm{x}_{i}) = \bm{0}$, $E(\delta_{it}\bm{y}_{i}) = \bm{0}$, which is stronger than the contemporary exogeneity assumption $E(\varepsilon_{it}x_{it}) = 0$ and $E(\delta_{it}y_{it}) = 0$ typical to random effects models [@Bruederl2015; @Wooldridge2012]. The strict exogeneity assumption is in line with the simulated DGP and it would be unusual to assume the errors at one point in time should be correlated with the covariates at other points in time without a strong theoretical argument. 
+For the sake of parsimony, we assume constant effects over time, i.e., $\rho_{t} = \rho$, $\beta_{t} = \beta$ and so forth. With sufficient degrees of freedom, a different coefficient per time point could be estimated. 
+
+One important thing to keep in mind is that the residual-level models (RI-CLPM, LCM-SR) are re-expressions of *constrained* versions of their observation-level counterparts (DPM, ALT, respectively). I.e., constrained panel models place specific assumptions on the initial conditions; in other words the way in which the latent individual effects influence the $t = 0$ variables. Specifically, they assume that the dynamic process is *stationary*, i.e., the autoregressive effect is less than one in absolute value and has been going on long enough to have reached *equilibrium*, i.e., the means and covariances of the variables of interest are no longer changing over time [@Ou2016; @Curran2001; @Bollen2004; @Jongerling2011; @Andersen2021]. These are potentially strict assumptions and so the residual-level models, just like the constrained observation-level counterparts, are not appropriate for modelling some dynamic processes. The initial observations in the observation-level models, on the other hand, can be treated as either constrained or *predetermined*. Predetermined models place no specific assumptions on the initial conditions, instead treating the $t = 0$ variables as exogenous, allowing them to covary freely with the individual effects and other exogenous covariates. This makes the predetermined models more flexible and able to model a wider range of dynamic processes, *at the cost of parsimony*: treating the initial observations as exogenous means a number of covariances must be estimated rather than fixed to specific values. For this reason, specify predetermined observation-level models by treating the first time point as exogenous. 
+
+The so-called bivariate predetermined ALT is essentially the same as the above-outlined DPM that further controls for unit heterogeneity in terms of *trajectory*.
+\begin{align}
+\begin{split}
+y_{it} & = \rho_{t} y_{it-1} + \beta_{t} x_{it-1} + \eta_{1i} + t\eta_{2i} + \varepsilon_{it}, \\
+x_{it} & = \varphi_{t} x_{it-1} + \gamma_{t} y_{it-1} + \alpha_{1i} + t\alpha_{2i} + \delta_{it}, \ t = 1, \ldots, T \label{alt}
+\end{split}
+\end{align}
+where $\eta_{2i}$ and $\alpha_{2i}$ are the unit specific trajectories multiplied by $t$ for linear growth.^[Other functions of time are also possible to model, either by adding another individual effects variable for polynomial functions, or by allowing the coefficient of the trajectories to be estimated freely for $t > 1$.] Essentially, we assume that individuals differ not only in regards to their stable overall levels, but also trajectories or slopes. In the multilevel literature, this is referred to as a random intercept, random slope model, @Hox2010. However, while the typical random effects/multilevel model with random intercepts and slopes assumes the individual trajectories are unrelated with the other model covariates, we can easily control for the possibility that they are related (a much more plausible assumption) by allowing the intercept and slope factors to covary with the covariates; thereby moving from random effects assumptions (e.g., $E(\eta_{1i}\bm{x}_{i}) = E(\eta_{2i}\bm{x}_{i}) = \bm{0}$, where the same applies to the individual effects of $x_{it}$, $\alpha_{i}$, and $\bm{y}_{i}$) to fixed effects ones ($E(\eta_{1i}\bm{x}_{i}) \ne \bm{0}$, $E(\eta_{2i}\bm{x}_{i}) \ne \bm{0}$).  
+
+For a DPM or ALT in which the constructs of interest are modelled as multiple indicator latent variables, we must add a measurement model portion to the model
+\begin{align}
+\begin{split}
+y_{jit} & = \lambda^{y}_{jt}y_{it} + \varepsilon_{jit}, \\
+x_{jit} & = \lambda^{x}_{jt}x_{it} + \delta_{jit}, \label{meas-model}
+\end{split}
+\end{align}
+with $y_{jit}$ and $x_{jit}$ as the $j$th indicators, $j = 1, \ldots, K$, and where $\lambda^{y}_{jt}$ and $\lambda^{x}_{jt}$ are the factor loadings of the $j$th indicator at time $t$ on the latent variables $y_{it}$ and $x_{it}$, respectively. 
+
+### Model specification
+
+There are four 'blocks' of code necessary to specify a DPM or an ALT with multi-indicator latent time-varying variables.  
+\begin{enumerate}
+\item Measurement models
+\item Individual effects
+\item Regressions
+\item Covariances 
+\end{enumerate}
+
+In the first block, the *measurement models* we specify the latent variables for the constructs of interest (lines 2--10). In this example, both the independent and dependent variables, $x$ and $y$, are measured using three separate indicators (`x1t`, `x2t`, `x3t`, `y1t`, `y2t`, `y3t`) at four discrete points in time. Note that no constraints have been placed on the factor loadings. The default behaviour of `lavaan` is to fix the factor loading for the first indicator (`x1t`, `y1t`) to one. 
+
+Next, in lines 11--13, we specify the individual effects to account for individual heterogeneity. Here, we use two latent variables, `alpha` and `eta` for each the independent and dependent variable, respectively. Note that the individual effects point towards the newly created latent constructs. All of the factor loadings are fixed to one. This represents the belief that the effect of the stable characteristics are constant over time [@Bollen2010]. 
+
+In lines 14--20, we specify the regressions for the autoregressive and cross-lagged effects. Note here that we use the same labels (`phi`, `rho`, `gamma`, `beta`) over time to *constrain* the effects to be equal at all points in time. This would be the default behaviour if we were specifying a random or fixed effects model conventionally with the stacked long-format data, i.e., with the stacked data, only one of each coefficient is estimated over all points in time. We can easily relax this assumption of constant effects by changing the labels to be different over time (e.g., `rhot1`, `rhot2`, etc.), or we could just delete them completely to have each estimated separately. 
+
+Lastly, the covariances or correlations are specified in lines 21--28. The thing that makes this model a fixed effects model, rather than a random effects one, is the assumption of the relatedness of the individual effects. Specifically, we allow `alpha` to correlate with `eta` to account for  
+
+```{r echo=TRUE, attr.source=".numberLines"}
+m1 <- '
+# Measurement models 
+xt1 =~ x11 + x21 + x31
+xt2 =~ x12 + x22 + x32
+xt3 =~ x13 + x23 + x33
+xt4 =~ x14 + x24 + x34
+yt1 =~ y11 + y21 + y31
+yt2 =~ y12 + y22 + y32
+yt3 =~ y13 + y23 + y33
+yt4 =~ y14 + y24 + y34
+# Individual effects
+alpha =~ 1*xt2 + 1*xt3 + 1*xt4 
+eta   =~ 1*yt2 + 1*yt3 + 1*yt4
+# Regressions, time-invariant effects
+xt2 ~ phi*xt1 + gamma*yt1 
+xt3 ~ phi*xt2 + gamma*yt2
+xt4 ~ phi*xt3 + gamma*yt3
+yt2 ~ rho*yt1 + beta*xt1 
+yt3 ~ rho*yt2 + beta*xt2
+yt4 ~ rho*yt3 + beta*xt3
+# Correlations
+alpha ~~ eta + xt1 + yt1
+eta   ~~ xt1 + yt1 
+xt1   ~~ yt1
+# Contemporary residual correlations
+xt2 ~~ yt2
+xt3 ~~ yt3
+xt4 ~~ yt4
+'
+```
+
+```{r eval=FALSE}
+m1.fit <- sem(model = m1, data = df1, meanstructure = TRUE, estimator = "ML")
+summary(m1.fit, fit.measures = TRUE, standardized = TRUE)
+```
+
+
+The *configural* measurement invariance model allows (1) the factor loadings in the measurement models   
+
+```{r echo=FALSE, include=FALSE}
+m1 <- '
+# Measurement models 
+xt1 =~ x11 + x21 + x31
+xt2 =~ x12 + x22 + x32
+xt3 =~ x13 + x23 + x33
+xt4 =~ x14 + x24 + x34
+yt1 =~ y11 + y21 + y31
+yt2 =~ y12 + y22 + y32
+yt3 =~ y13 + y23 + y33
+yt4 =~ y14 + y24 + y34
+# Individual effects
+alpha =~ 1*xt2 + 1*xt3 + 1*xt4 
+eta   =~ 1*yt2 + 1*yt3 + 1*yt4
+# Regressions, time-invariant effects
+xt2 ~ phi*xt1 + gamma*yt1 
+xt3 ~ phi*xt2 + gamma*yt2
+xt4 ~ phi*xt3 + gamma*yt3
+yt2 ~ rho*yt1 + beta*xt1 
+yt3 ~ rho*yt2 + beta*xt2
+yt4 ~ rho*yt3 + beta*xt3
+# Correlations
+alpha ~~ eta + xt1 + yt1
+eta   ~~ xt1 + yt1 
+xt1   ~~ yt1
+# Contemporary residual correlations
+xt2 ~~ yt2
+xt3 ~~ yt3
+xt4 ~~ yt4
+'
+m1.fit <- sem(model = m1, data = df1, meanstructure = TRUE, estimator = "ML")
+# summary(m1.fit, fit.measures = TRUE, standardized = TRUE)
+```
+
+### One-sided models 
+
+We can conceive of one-sided versions of the same DPM and ALT [see for example @Allison2017]. In these models, we treat $y_{t}$ as the 'definitive' dependent variable^[This is an arbitrary choice, however. We could just as well treat $x_{t}$ as the dependent variable.] and leave the reciprocal effects $y_{t-1} \rightarrow x_{t}$ unmodelled. Now, $x_{t}$ is an exogenous variable, allowed to correlate with $x_{s}, \ t \ne s$, as well as the predetermined $y_{0}$ and the individual effects $\eta$. This is obviously a more general model that the two-sided version that places less assumptions on the 'independent' variable. However, it is important to note that if we believe that $x_{t}$ is a function of $y_{t-1}$, we must model this dependency even if we are only truly interested in the effect $x_{t-1} \rightarrow y_{t}$. To see why this is, write $x_{it} = \varphi x_{it-1} + \gamma y_{it-1} + \upsilon_{it}$, where $\upsilon_{it} = \alpha_{i} + \delta_{it}$. Now, expand for $x_{it} = \varphi x_{it-1} + \gamma (\rho y_{t-2} + \beta x_{t-2} + \eta_{i} + \varepsilon_{it-1}) + \upsilon_{it}$. Obviously, because of the assumed presence of the reciprocal effect, $x_{t}$ will be correlated with $\varepsilon_{it-1}$. Thus, we must treat $x_{t}$ as *sequentially exogenous* and allow for $Cov(x_{t},\varepsilon_{s}), \ t > s$. 
+
+```{r echo=FALSE, include=FALSE}
+m1b <- '
+# Measurement models 
+xt1 =~ x11 + x21 + x31
+xt2 =~ x12 + x22 + x32
+xt3 =~ x13 + x23 + x33
+yt1 =~ y11 + y21 + y31
+yt2 =~ y12 + y22 + y32
+yt3 =~ y13 + y23 + y33
+yt4 =~ y14 + y24 + y34
+# Individual effects
+eta =~ 1*yt2 + 1*yt3 + 1*yt4
+# Regressions, time-invariant effects
+yt2 ~ rho*yt1 + beta*xt1 
+yt3 ~ rho*yt2 + beta*xt2
+yt4 ~ rho*yt3 + beta*xt3
+# Correlations
+eta ~~ yt1 + xt1 + xt2 + xt3 
+yt1 ~~ xt1 + xt2 + xt3 
+xt1 ~~ xt2 + xt3
+xt2 ~~ xt3 
+# Contemporary residual correlations
+xt2 ~~ yt2
+xt3 ~~ yt3
+# Sequential exogeneity 
+xt3 ~~ yt2 
+'
+m1b.fit <- sem(model = m1b, data = df1, meanstructure = TRUE, estimator = "ML")
+# summary(m1b.fit, fit.measures = TRUE, standardized = TRUE)
+```
+
+## Residual-level models
+
+The RI-CLPM and LCM-SR are considered 'residual-level' models in which the autoregressive and covariate effects are specified  between the residuals of the observed variables or the disturbances of the latent variables representing the measurement error adjusted constructs of interest, see Figure xxx(c) and xxx(d) for two-sided representations. 
+
+For an RI-CLPM analogous to the two-sided DPM above, we have
+\begin{align}
+\begin{split}
+y_{it} & = \eta_{i} + \varepsilon_{it}, \\
+x_{it} & = \alpha_{i} + \delta_{it}, \ t = 0, \ldots, T, \\
+\varepsilon_{it} & = \rho \varepsilon_{it-1} + \beta \delta_{it-1} + \nu_{it}, \\
+\delta_{it} & = \varphi \delta_{it-1} + \gamma \varepsilon_{it-1} + \upsilon_{it}, \ t = 1, \ldots, T, \label{riclpm}
+\end{split}
+\end{align}
+where $\varepsilon_{it}$ and $\delta_{it}$ are the errors or disturbances of either the observed or latent variables $y_{it}$ and $x_{it}$, respectively. If the variables are modelled as latent, then the measurement models in Equation \eqref{meas-model} apply here as well. Note that the autoregressive and cross-lagged paths are specified between these 'structured residuals' as @Curran2014 refer to them. Note further that the factor loadings of the individual effects on the observed or latent variables of interest, $y_{it}$ and $x_{it}$, are fixed to one at all points in time, $t = 0, \ldots, T$. This makes the default residual-level models as they are described in the source articles from @Curran2014; @Hamaker2015 implicitly constrained versions of their observation-level counterparts, see @Andersen2021; @Ou2016; @Hsiao2014 for details. This means that the residual-level models will not generally be equivalent to the predetermined observation-level counterparts. If the assumptions of the constrained models hold, i.e., stationarity and equilibrium, then the observed covariances $Cov(y_{0},\eta)$ and $Cov(x_{0},\alpha)$ will equal the constraints placed on the constrained models (barring sampling error) and the estimated autoregressive and cross-lagged coefficients will be roughly equal. However, if the assumptions hold, the residual-level models, like their constrained observation-level counterparts, are more parsimonious, fixing the initial factor loadings $\eta \rightarrow y_{0}$ and $\alpha \rightarrow x_{0}$ to the appropriate values without having to estimate them. 
+
+An analogous LCM-SR further incorporates random slopes per unit. 
+\begin{align}
+\begin{split}
+y_{it} & = \eta_{1i} + t\eta_{2i} + \varepsilon_{it}, \\
+x_{it} & = \alpha_{1i} + t\alpha_{2i} + \delta_{it}, \ t = 0, \ldots, T, \\
+\varepsilon_{it} & = \rho \varepsilon_{it-1} + \beta \delta_{it-1} + \nu_{it}, \\
+\delta_{it} & = \varphi \delta_{it-1} + \gamma \varepsilon_{it-1} + \upsilon_{it}, \ t = 1, \ldots, T, \label{riclpm}
+\end{split}
+\end{align}
+where $\eta_{2i}$ and $\alpha_{2i}$ are the random slopes for $y_{it}$ and $x_{it}$, respectively. 
+
+### xxx
+
+WHAT ABOUT FIXED VS. RANDOM EFFECTS IN THE TWO-SIDED MODELS? IS IT ENOUGH TO ALLOW ALPHA AND ETA TO COVARY? TEST THIS! 
+
+
+# Conclusion 
+
+xxx 
+
+# Acknowledgement(s) {-}
+
+An unnumbered section, e.g.\ `\section*{Acknowledgements}`, may be used for thanks, etc.\ if required and included _in the non-anonymous version_ before any Notes or References.
+
+# Disclosure statement {-}
+
+An unnumbered section, e.g.\ `\section*{Disclosure statement}`, may be used to declare any potential conflict of interest and included _in the non-anonymous version_ before any Notes or References, after any Acknowledgements and before any Funding information.
+
+# Funding {-}
+
+An unnumbered section, e.g.\ `\section*{Funding}`, may be used for grant details, etc.\ if required and included _in the non-anonymous version_ before any Notes or References.
+
+# Notes on contributor(s) {-}
+
+An unnumbered section, e.g.\ `\section*{Notes on contributors}`, may be included _in the non-anonymous version_ if required. A photograph may be added if requested.
+
+# Notes {-}
+
+An unnumbered `Notes` section may be included before the References (if using the `endnotes` package, use the command `\theendnotes` where the notes are to appear, instead of creating a `\section*`).
+
+# References
+
+
